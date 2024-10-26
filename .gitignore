@@ -1,0 +1,5 @@
+# python env files
+/env
+
+# environments variables
+.env
