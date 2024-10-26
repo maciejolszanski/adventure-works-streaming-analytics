@@ -1,46 +1,64 @@
 import os
 import pyodbc
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def get_conn_str_from_env_file() -> str:
-    load_dotenv()
+class SQLServerConnector():
 
-    sql_server_host = os.getenv('SQL_SERVER_HOST')
-    sql_server_database = os.getenv('SQL_SERVER_DATABASE')
-    sql_server_user = os.getenv('SQL_SERVER_USER')
-    sql_server_password = os.getenv('SQL_SERVER_PASSWORD')
+    def __init__(self, connection_string: str=''):
+        if not connection_string:
+            connection_string = self._get_conn_str_from_env_file()
 
-    connection_string = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_server_host};DATABASE={sql_server_database};UID={sql_server_user};PWD={sql_server_password}"
+        self.connection = self._connect(connection_string)
 
-    return connection_string
+    def _get_conn_str_from_env_file(self ) -> str:
+        load_dotenv()
+
+        sql_server_host = os.getenv('SQL_SERVER_HOST')
+        sql_server_database = os.getenv('SQL_SERVER_DATABASE')
+        sql_server_user = os.getenv('SQL_SERVER_USER')
+        sql_server_password = os.getenv('SQL_SERVER_PASSWORD')
+
+        connection_string = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_server_host};DATABASE={sql_server_database};UID={sql_server_user};PWD={sql_server_password}"
+
+        return connection_string
+    
+    def _connect(self, connection_string):
+        try:
+            connection = pyodbc.connect(connection_string)
+            logger.info("Connected to SQL Server")
+        except:
+            connection = None
+            logger.warning("Couldn't establish connection with SQL Server")
+        
+        return connection
+
+    def execute_query(self, query: str) -> str:
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        return results
+
+    def get_all_tables(self,) -> list[str]:
+        query = """
+            SELECT
+                CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) as table_full_name
+            FROM
+                INFORMATION_SCHEMA.TABLES
+            WHERE
+                TABLE_TYPE = 'BASE TABLE'
+            """
+        query_result = self.execute_query(query)
+        tables_list = [table[0] for table in query_result]
+
+        return tables_list
 
 
-def execute_query(connection: pyodbc.Connection, query: str) -> str:
-    cursor = connection.cursor()
-    cursor.execute(query)
-    results = cursor.fetchall()
-
-    return results
-
-def get_all_tables(connection: pyodbc.Connection) -> list[str]:
-    query = """
-        SELECT
-            CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) as table_full_name
-        FROM
-            INFORMATION_SCHEMA.TABLES
-        WHERE
-            TABLE_TYPE = 'BASE TABLE'
-        """
-    query_result = execute_query(connection, query)
-    tables_list = [table[0] for table in query_result]
-
-    return tables_list
-
-connection_string = get_conn_str_from_env_file()
-
-with pyodbc.connect(connection_string) as connection:
-    print("Connection successful!")
-
-    tables = get_all_tables(connection)
+if __name__ == "__main__":
+    sql_server = SQLServerConnector()
+    tables = sql_server.get_all_tables()
     print(tables)
