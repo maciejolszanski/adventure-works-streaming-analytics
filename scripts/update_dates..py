@@ -30,11 +30,17 @@ class SQLServerConnector():
         try:
             connection = pyodbc.connect(connection_string)
             logger.info("Connected to SQL Server")
-        except:
-            connection = None
-            logger.warning("Couldn't establish connection with SQL Server")
-        
-        return connection
+            return connection
+        except pyodbc.Error as e:
+            logger.error("Couldn't establish connection with SQL Server", exc_info=e)
+            raise ConnectionError("Failed to connect to SQL Server") from e
+    
+    def close_connection(self) -> None:
+        try:
+            self.connection.close()
+            logger.info("Succesfully closed connection")
+        except Exception as e:
+            logger.error(f"Couldn't close the connection due to an error: {e}")
 
     def execute_query(self, query: str) -> str:
         cursor = self.connection.cursor()
@@ -59,6 +65,10 @@ class SQLServerConnector():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level="WARNING")
+
     sql_server = SQLServerConnector()
-    tables = sql_server.get_all_tables()
-    print(tables)
+    # tables = sql_server.get_all_tables()
+    # logger.debug(tables)
+
+    sql_server.close_connection()
