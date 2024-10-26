@@ -21,7 +21,13 @@ class SQLServerConnector():
         sql_server_user = os.getenv('SQL_SERVER_USER')
         sql_server_password = os.getenv('SQL_SERVER_PASSWORD')
 
-        connection_string = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={sql_server_host};DATABASE={sql_server_database};UID={sql_server_user};PWD={sql_server_password}"
+        connection_string = connection_string = (
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={sql_server_host};"
+            f"DATABASE={sql_server_database};"
+            f"UID={sql_server_user};"
+            f"PWD={sql_server_password}"
+        )
 
         return connection_string
     
@@ -31,7 +37,10 @@ class SQLServerConnector():
             logger.info("Connected to SQL Server Database")
             return connection
         except pyodbc.Error as e:
-            logger.error("Couldn't establish connection with SQL Server", exc_info=e)
+            logger.error(
+                "Couldn't establish connection with SQL Server",
+                exc_info=e
+            )
             raise ConnectionError("Failed to connect to SQL Server") from e
     
     def close_connection(self) -> None:
@@ -39,14 +48,14 @@ class SQLServerConnector():
             self.connection.close()
             logger.info("Succesfully closed connection")
         except Exception as e:
-            logger.error(f"Couldn't close the connection due to an error: {e}")
+            logger.error(
+                f"Couldn't close the connection due to an error: {e}")
 
     def __del__(self):
-        # This will be called when the object is about to be destroyed
+        # This function is called when the object is about to be destroyed
         self.close_connection()
-        logger.info("SQLServerConnector object is being destroyed and connection closed.")
         
-    def execute_query(self, query: str) -> str:
+    def execute_query(self, query: str) -> str | None:
         cursor = self.connection.cursor()
         cursor.execute(query)
         results = cursor.fetchall()
