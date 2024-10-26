@@ -41,23 +41,14 @@ class SQLServerConnector():
         except Exception as e:
             logger.error(f"Couldn't close the connection due to an error: {e}")
 
+    def __del__(self):
+        # This will be called when the object is about to be destroyed
+        self.close_connection()
+        logger.info("SQLServerConnector object is being destroyed and connection closed.")
+        
     def execute_query(self, query: str) -> str:
         cursor = self.connection.cursor()
         cursor.execute(query)
         results = cursor.fetchall()
 
         return results
-
-    def get_all_tables(self,) -> list[str]:
-        query = """
-            SELECT
-                CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) as table_full_name
-            FROM
-                INFORMATION_SCHEMA.TABLES
-            WHERE
-                TABLE_TYPE = 'BASE TABLE'
-            """
-        query_result = self.execute_query(query)
-        tables_list = [table[0] for table in query_result]
-
-        return tables_list
