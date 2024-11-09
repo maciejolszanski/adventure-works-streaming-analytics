@@ -12,16 +12,6 @@ class DatesUpdater:
         self.column_config: dict[str, list[str]] = self._get_datetime_columns()
         self.max_transaction_date: datetime.date = self._get_transaction_max_date()
 
-    def _execute_query(self, query: str) -> list:
-        """Executes a query and returns results, with logging."""
-        try:
-            result = self.sql_server.execute_query(query)
-            logger.debug(f"Executed query: {query}")
-            return result
-        except Exception as e:
-            logger.error(f"Error executing query: {query} - {e}")
-            raise
-
     def _get_tables(self) ->list[str]:
         query = """
             SELECT
@@ -30,7 +20,7 @@ class DatesUpdater:
             WHERE TABLE_TYPE = 'BASE TABLE'
                 AND TABLE_SCHEMA <> 'dbo'
             """
-        query_result = self._execute_query(query)
+        query_result = self.sql_server.execute_query(query)
         all_tables = [table[0] for table in query_result]
         logger.info("Succesfully retrieved all tables")
 
@@ -46,7 +36,7 @@ class DatesUpdater:
             AND CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) in {tuple(self.all_tables)}
             GROUP BY CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME)
         """
-        date_columns = self._execute_query(query)
+        date_columns = self.sql_server.execute_query(query)
         logger.info("Succesfully read datetimes columns")
 
         column_config = self._generate_column_config(date_columns)
@@ -77,7 +67,7 @@ class DatesUpdater:
             SELECT MAX({column}) 
             FROM {table}
         """
-        query_result = self._execute_query(query)
+        query_result = self.sql_server.execute_query(query)
         max_date = query_result[0][0]
 
         if isinstance(max_date, datetime.datetime):
@@ -147,5 +137,5 @@ class DatesUpdater:
 
         query = f"""UPDATE {table} SET {dateadd_string}"""
         logger.debug(f"Updating table with query: {query}")
-        self._execute_query(query)
+        self.sql_server.execute_query(query)
 

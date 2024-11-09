@@ -55,13 +55,21 @@ class SQLServerConnector:
         # This function is called when the object is about to be destroyed
         self.close_connection()
         
-    def execute_query(self, query: str) -> str:
-        cursor = self.connection.cursor()
-        cursor.execute(query)
+    def execute_query(self, query: str) -> list[pyodbc.Row] | None:
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute(query)
 
-        if query.strip().upper().startswith("SELECT"):
-            results = cursor.fetchall()
+            if query.strip().upper().startswith("SELECT"):
+                results = cursor.fetchall()
+            else:
+                self.connection.commit()
+                results = None
+
+            logger.debug(f"Executed query: {query}")
             return results
-        else:
-            self.connection.commit()
-            return "Commited"
+        
+        except Exception as e:
+            logger.error(f"Error executing query: {query} - {e}")
+            raise
+
