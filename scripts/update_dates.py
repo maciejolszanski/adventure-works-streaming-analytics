@@ -8,11 +8,11 @@ class DatesUpdater:
 
     def __init__(self, sql_server: SQLServerConnector):
         self.sql_server = sql_server
-        self.all_tables: list[str] = self.get_tables()
-        self.column_config: dict[str, list[str]] = self.get_datetime_columns()
-        self.max_transaction_date: datetime.date = self.get_transaction_max_date()
+        self.all_tables: list[str] = self._get_tables()
+        self.column_config: dict[str, list[str]] = self._get_datetime_columns()
+        self.max_transaction_date: datetime.date = self._get_transaction_max_date()
 
-    def get_tables(self):
+    def _get_tables(self):
         query = """
             SELECT
                 CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) as table_full_name
@@ -27,7 +27,7 @@ class DatesUpdater:
 
         return all_tables
 
-    def get_datetime_columns(self):
+    def _get_datetime_columns(self):
         query = f"""
             SELECT
                 CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) as table_full_name
@@ -57,52 +57,89 @@ class DatesUpdater:
 
         return config
 
-    def get_transaction_max_date(self) -> datetime.date:
-
-        query = """
-            SELECT MAX(TransactionDate) 
-            FROM AdventureWorks.Production.TransactionHistory
-        """
-        query_result = self.sql_server.execute_query(query)
-        max_transaction_date = query_result[0][0].date()
+    def _get_transaction_max_date(self) -> datetime.date:
+        
+        table = "AdventureWorks.Production.TransactionHistory"
+        column = "TransactionDate"
+        max_transaction_date = self._get_col_max_date(table, column)
         logging.info(f"Latest transaction date found: {max_transaction_date}")
 
         return max_transaction_date
+    
+    def _get_col_max_date(self, table: str, column: str) -> datetime.date | None:
 
-    def get_date_diff_in_days(self):
-        date_diff = datetime.date.today() - self.max_transaction_date
+        query = f"""
+            SELECT MAX({column}) 
+            FROM {table}
+        """
+        query_result = self.sql_server.execute_query(query)
+        max_date = query_result[0][0]
+
+        if isinstance(max_date, datetime.datetime):
+            max_date = max_date.date()
+        elif not isinstance(max_date, datetime.date):
+            logger.warning(
+                f"{table}.{column} max_date is of {type(max_date)}, not a date or datetime object!"
+            )
+
+        return max_date
+
+    def _get_diff_days_from_now(self, date: datetime.date) -> int:
+        date_diff = datetime.date.today() - date
         
         return date_diff.days
 
     def update_dates(self):
+        self._updates_dates_based_on_transaction_max_date()
+        self._update_dates_if_later_than_today()
 
-        days_to_add = self.get_date_diff_in_days()
-
-        for table, columns in self.column_config.items():
-            for column in columns:
-                logging.debug(f"table: {table}, column: {column}")
-
-                query = f"""UPDATE {table} SET DATEADD({days_to_add},{column})"""
-                logging.debug(query)
-
-    def update_dates(self):
-
-        days_to_add = self.get_date_diff_in_days()
+    def _updates_dates_based_on_transaction_max_date(self):
+        days_to_add = self._get_diff_days_from_now(self.max_transaction_date)
 
         for table, columns in self.column_config.items():
+            self._add_days_to_columns(table, columns, days_to_add)
 
-            logging.debug(f"table: {table}, column: {columns}")
-            dateadd_strings = []
+    def _update_dates_if_later_than_today(self):
+        today_date = datetime.date.today()
+
+        for table, columns in self.column_config.items():
+            max_table_date = today_date
+
             for column in columns:
-                dateadd_strings.append(f"{column} = DATEADD(DAY, {days_to_add}, {column})")
+                max_col_date = self._get_col_max_date(table, column)
+                if not max_col_date:
+                    continue
+                elif max_col_date > max_table_date:
+                    max_table_date = max_col_date
+            
+            if max_table_date > today_date:
+                # days_to_add should be negative here
+                days_to_add = self._get_diff_days_from_now(max_table_date)
+                logger.debug(f"{table}.{column}, max_table_date: {max_table_date}, days_diff: {days_to_add}")
+                self._add_days_to_columns(table, columns, days_to_add)
 
-            dateadd_string = ', '.join(dateadd_strings)
+    def _add_days_to_columns(
+            self,
+            table: str,
+            columns: list[str],
+            days_to_add: int
+        ):
+         
+        logging.debug(f"table: {table}, column: {columns}")
+        dateadd_strings = []
 
-            query = f"""UPDATE {table} SET {dateadd_string}"""
-            logging.debug(query)
+        for column in columns:
+            dateadd_strings.append(
+                f"{column} = DATEADD(DAY, {days_to_add}, {column})"
+            )
 
-            result = self.sql_server.execute_query(query)
-            logging.debug(result)
+        dateadd_string = ', '.join(dateadd_strings)
+
+        query = f"""UPDATE {table} SET {dateadd_string}"""
+        logging.debug(query)
+
+        result = self.sql_server.execute_query(query)
+        logging.debug(result)
 
 
 if __name__ == "__main__":
@@ -111,7 +148,3 @@ if __name__ == "__main__":
     sql_server = SQLServerConnector()
     dates_updater = DatesUpdater(sql_server)
     dates_updater.update_dates()
-    # dates_updater.get_tables()
-    # dates_updater.get_datetime_columns()
-    # dates_updater.get_transaction_max_date()
-    
