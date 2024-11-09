@@ -3,13 +3,11 @@ from unittest.mock import MagicMock, patch
 import pyodbc
 from streaming_analytics.connectors.sql_server_connector import SQLServerConnector
 
-# Mock the logger to avoid actual logging output during tests
 @pytest.fixture
 def mock_logger():
     with patch("streaming_analytics.connectors.sql_server_connector.logger") as mock:
         yield mock
 
-# Mock the pyodbc.connect to avoid actual DB connection
 @pytest.fixture
 def mock_connect():
     with patch("pyodbc.connect") as mock:
@@ -53,7 +51,6 @@ def test_get_conn_str_from_env_file(mock_logger, mock_connect):
 
 
 def test_connect(mock_logger, mock_connect):
-    # Mock pyodbc.connect
     mock_connect.return_value = MagicMock()
     connector = SQLServerConnector(connection_string="mock_connection_string")
     mock_connect.assert_called_once_with("mock_connection_string")
@@ -61,41 +58,36 @@ def test_connect(mock_logger, mock_connect):
 
 
 def test_connect_failure(mock_logger, mock_connect):
-    # Simulate connection failure by making pyodbc.connect raise an exception
     mock_connect.side_effect = pyodbc.Error
     with pytest.raises(ConnectionError):
         SQLServerConnector(connection_string="mock_connection_string")
 
 
 def test_close_connection(mock_logger, mock_connect):
-    # Mock the connection and the close method
     mock_connection = MagicMock()
-    mock_connect.return_value = mock_connection  # Ensure mock connection is used
+    mock_connect.return_value = mock_connection
     connector = SQLServerConnector(connection_string="mock_connection_string")
-    connector.connection = mock_connection  # Set connection to mock
+    connector.connection = mock_connection
     connector.close_connection()
     mock_connection.close.assert_called_once()
 
 
 def test_close_connection_error(mock_logger, mock_connect):
-    # Mock the connection and simulate an error during close
     mock_connection = MagicMock()
     mock_connection.close.side_effect = Exception("Close error")
     mock_connect.return_value = mock_connection
     connector = SQLServerConnector(connection_string="mock_connection_string")
-    connector.connection = mock_connection  # Set connection to mock
+    connector.connection = mock_connection
     with patch.object(mock_logger, "error") as mock_error:
         connector.close_connection()
         mock_error.assert_called_once_with("Couldn't close the connection due to an error: Close error")
 
 
 def test_execute_select_query(mock_logger, mock_connect):
-    # Mock the cursor and description for a SELECT query
     mock_cursor = MagicMock()
     mock_cursor.description = [("col1",), ("col2",)]
     mock_cursor.fetchall.return_value = [(1, 2), (3, 4)]
     
-    # Mock the connection and cursor execution
     mock_connection = MagicMock(cursor=MagicMock(return_value=mock_cursor))
     mock_connect.return_value = mock_connection
     connector = SQLServerConnector(connection_string="mock_connection_string")
@@ -106,7 +98,6 @@ def test_execute_select_query(mock_logger, mock_connect):
 
 
 def test_execute_non_select_query(mock_logger, mock_connect):
-    # Mock the commit method for non-SELECT queries
     mock_connection = MagicMock(commit=MagicMock())
     mock_connect.return_value = mock_connection
     connector = SQLServerConnector(connection_string="mock_connection_string")
@@ -117,7 +108,6 @@ def test_execute_non_select_query(mock_logger, mock_connect):
 
 
 def test_execute_query_error(mock_logger, mock_connect):
-    # Mock an exception during query execution
     mock_cursor = MagicMock()
     mock_cursor.fetchall.side_effect = Exception("Query execution error")
     mock_connection = MagicMock(cursor=MagicMock(return_value=mock_cursor))
