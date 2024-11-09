@@ -1,4 +1,4 @@
-from sql_server_connector import SQLServerConnector
+from ..connectors import SQLServerConnector
 import logging
 import datetime
 

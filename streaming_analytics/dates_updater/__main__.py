@@ -1,5 +1,5 @@
-from sql_server_connector import SQLServerConnector
-from dates_updater import DatesUpdater
+from ..connectors import SQLServerConnector
+from .dates_updater import DatesUpdater
 import logging
 
 logger = logging.getLogger(__name__)
