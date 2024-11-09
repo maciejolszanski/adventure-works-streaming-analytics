@@ -149,10 +149,3 @@ class DatesUpdater:
         logger.debug(f"Updating table with query: {query}")
         self._execute_query(query)
 
-
-if __name__ == "__main__":
-    logging.basicConfig(level="INFO")
-
-    sql_server = SQLServerConnector()
-    dates_updater = DatesUpdater(sql_server)
-    dates_updater.update_dates()
