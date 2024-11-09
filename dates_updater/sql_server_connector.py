@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class SQLServerConnector():
+class SQLServerConnector:
 
     def __init__(self, connection_string: str=''):
         if not connection_string:
