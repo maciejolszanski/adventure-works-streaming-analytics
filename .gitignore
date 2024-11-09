@@ -1,5 +1,8 @@
 # python env files
 /env
 
+# pytchon cache
+__pycache__
+
 # environments variables
 .env
