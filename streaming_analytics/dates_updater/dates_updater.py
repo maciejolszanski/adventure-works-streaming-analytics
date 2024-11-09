@@ -20,7 +20,7 @@ class DatesUpdater:
             WHERE TABLE_TYPE = 'BASE TABLE'
                 AND TABLE_SCHEMA <> 'dbo'
             """
-        query_result = self.sql_server.execute_query(query)
+        _, query_result = self.sql_server.execute_query(query)
         all_tables = [table[0] for table in query_result]
         logger.info("Succesfully retrieved all tables")
 
@@ -36,7 +36,7 @@ class DatesUpdater:
             AND CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME) in {tuple(self.all_tables)}
             GROUP BY CONCAT(TABLE_CATALOG, '.', TABLE_SCHEMA, '.', TABLE_NAME)
         """
-        date_columns = self.sql_server.execute_query(query)
+        _, date_columns = self.sql_server.execute_query(query)
         logger.info("Succesfully read datetimes columns")
 
         column_config = self._generate_column_config(date_columns)
@@ -67,7 +67,7 @@ class DatesUpdater:
             SELECT MAX({column}) 
             FROM {table}
         """
-        query_result = self.sql_server.execute_query(query)
+        _, query_result = self.sql_server.execute_query(query)
         max_date = query_result[0][0]
 
         if isinstance(max_date, datetime.datetime):

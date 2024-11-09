@@ -6,7 +6,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SQLServerConnector:
+    """
+    A class to manage the connection to a SQL Server database and execute SQL queries.
 
+    This class provides functionality to connect to a SQL Server database, execute SQL queries 
+    (including SELECT and non-SELECT queries), and close the database connection. It can automatically 
+    load the connection string from environment variables if not provided. The class supports 
+    safe connection handling by closing the connection when the object is destroyed.
+
+    Attributes:
+        connection (pyodbc.Connection): The connection object used to interact with the SQL Server database.
+    
+    Methods:
+        execute_query(query: str) -> tuple[list[str], list[pyodbc.Row]]:
+            Executes a SQL query on the connected SQL Server database, returns column names and rows for SELECT queries,
+            or commits the transaction for non-SELECT queries.
+        
+        close_connection() -> None:
+            Closes the connection to the SQL Server database.
+    """
     def __init__(self, connection_string: str=''):
         if not connection_string:
             connection_string = self._get_conn_str_from_env_file()
@@ -55,16 +73,52 @@ class SQLServerConnector:
         # This function is called when the object is about to be destroyed
         self.close_connection()
         
-    def execute_query(self, query: str) -> list[pyodbc.Row] | None:
+    def execute_query(self, query: str) -> tuple[list[str], list[pyodbc.Row]]:
+        """
+        Executes a SQL query on the connected SQL Server database.
+
+        If the query is a `SELECT` statement, it fetches the column names and 
+        the resulting rows. If the query is not a `SELECT` statement (e.g., an 
+        `INSERT`, `UPDATE`, or `DELETE`), it commits the transaction but does 
+        not return any results.
+
+        Args:
+            query (str): The SQL query to be executed.
+
+        Returns:
+            tuple:
+                - A list of column names (if it's a `SELECT` query) or an empty list (if not).
+                - A list of rows returned from the query (if it's a `SELECT` query) or an empty list (if not).
+                The rows are returned as `pyodbc.Row` objects, which allow access by column name or index.
+
+        Raises:
+            Exception: If an error occurs during query execution, an exception is logged and re-raised.
+
+        Example:
+            For a `SELECT` query:
+            ```
+            column_names, rows = execute_query("SELECT * FROM table_name")
+            print(column_names)  # List of column names
+            for row in rows:
+                print(row)  # Each row is a pyodbc.Row object
+            ```
+
+            For a non-`SELECT` query:
+            ```
+            execute_query("INSERT INTO table_name (col1, col2) VALUES (val1, val2)")
+            ```
+        """
         try:
             cursor = self.connection.cursor()
             cursor.execute(query)
 
             if query.strip().upper().startswith("SELECT"):
-                results = cursor.fetchall()
+                column_names = [column[0] for column in cursor.description]
+                rows = cursor.fetchall()
+                results = (column_names, rows) 
             else:
                 self.connection.commit()
-                results = None
+                results = ([], [])
 
             logger.debug(f"Executed query: {query}")
             return results
@@ -72,4 +126,3 @@ class SQLServerConnector:
         except Exception as e:
             logger.error(f"Error executing query: {query} - {e}")
             raise
-
