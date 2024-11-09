@@ -55,9 +55,13 @@ class SQLServerConnector():
         # This function is called when the object is about to be destroyed
         self.close_connection()
         
-    def execute_query(self, query: str) -> str | None:
+    def execute_query(self, query: str) -> str:
         cursor = self.connection.cursor()
         cursor.execute(query)
-        results = cursor.fetchall()
 
-        return results
+        if query.strip().upper().startswith("SELECT"):
+            results = cursor.fetchall()
+            return results
+        else:
+            self.connection.commit()
+            return "Commited"

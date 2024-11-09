@@ -8,8 +8,9 @@ class DatesUpdater:
 
     def __init__(self, sql_server: SQLServerConnector):
         self.sql_server = sql_server
-        self.all_tables: list[str] = []
-        self.column_config: dict[str, list[str]] = {}
+        self.all_tables: list[str] = self.get_tables()
+        self.column_config: dict[str, list[str]] = self.get_datetime_columns()
+        self.max_transaction_date: datetime.date = self.get_transaction_max_date()
 
     def get_tables(self):
         query = """
@@ -39,7 +40,9 @@ class DatesUpdater:
         date_columns = self.sql_server.execute_query(query)
         logger.info("Succesfully read datetimes columns")
 
-        self.column_config = self._generate_column_config(date_columns)
+        column_config = self._generate_column_config(date_columns)
+
+        return column_config
 
     def _generate_column_config(
             self,
@@ -61,44 +64,54 @@ class DatesUpdater:
             FROM AdventureWorks.Production.TransactionHistory
         """
         query_result = self.sql_server.execute_query(query)
-        max_transaction_date = query_result[0][0]
+        max_transaction_date = query_result[0][0].date()
         logging.info(f"Latest transaction date found: {max_transaction_date}")
 
         return max_transaction_date
-    
+
+    def get_date_diff_in_days(self):
+        date_diff = datetime.date.today() - self.max_transaction_date
+        
+        return date_diff.days
+
     def update_dates(self):
 
-        max_date = datetime.date(1970, 1, 1)
+        days_to_add = self.get_date_diff_in_days()
 
         for table, columns in self.column_config.items():
             for column in columns:
                 logging.debug(f"table: {table}, column: {column}")
 
-                query = f"""SELECT MAX({column}) FROM {table}"""
-                query_result = self.sql_server.execute_query(query)
+                query = f"""UPDATE {table} SET DATEADD({days_to_add},{column})"""
+                logging.debug(query)
 
-                logging.debug(f"result: {query_result}")
+    def update_dates(self):
 
-                # query result is a list of tuples
-                max_col_date = query_result[0][0]
+        days_to_add = self.get_date_diff_in_days()
 
-                if max_col_date is None:
-                    continue
+        for table, columns in self.column_config.items():
 
-                if isinstance(max_col_date, datetime.datetime):
-                    max_col_date = max_col_date.date()
+            logging.debug(f"table: {table}, column: {columns}")
+            dateadd_strings = []
+            for column in columns:
+                dateadd_strings.append(f"{column} = DATEADD(DAY, {days_to_add}, {column})")
 
-                if max_col_date > max_date:
-                    max_date = max_col_date
+            dateadd_string = ', '.join(dateadd_strings)
 
-        print(max_date)
+            query = f"""UPDATE {table} SET {dateadd_string}"""
+            logging.debug(query)
+
+            result = self.sql_server.execute_query(query)
+            logging.debug(result)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level="DEBUG")
 
     sql_server = SQLServerConnector()
     dates_updater = DatesUpdater(sql_server)
+    dates_updater.update_dates()
     # dates_updater.get_tables()
     # dates_updater.get_datetime_columns()
-    dates_updater.get_transaction_max_date()
+    # dates_updater.get_transaction_max_date()
     
