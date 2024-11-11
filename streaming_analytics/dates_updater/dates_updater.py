@@ -58,7 +58,7 @@ class DatesUpdater:
         table = "AdventureWorks.Production.TransactionHistory"
         column = "TransactionDate"
         max_transaction_date = self._get_col_max_date(table, column)
-        logging.info(f"Latest transaction date found: {max_transaction_date}")
+        logging.debug(f"Latest transaction date found: {max_transaction_date}")
 
         return max_transaction_date
     
